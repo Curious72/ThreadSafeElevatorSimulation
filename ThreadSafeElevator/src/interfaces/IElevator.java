@@ -7,10 +7,11 @@ public interface IElevator {
      IMovementBehaviour getMovementBehaviour();
      int getCurrentCapacity();
      void selectFloor(int level);
-     void selectFloor(Person person, int level);
+//     void selectFloor(Person person, int level);
      void move();
      void setMovementBehaviour(IMovementBehaviour movementBehaviour);
      Floor getCurrentFloor();
-     void addPersonToElevator(Person person);
+     void boardElevator(Person person);
+     void leaveElevator(Person person);
 
 }

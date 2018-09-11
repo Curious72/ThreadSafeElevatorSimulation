@@ -5,8 +5,10 @@ import interfaces.IMovementBehaviour;
 
 import java.util.*;
 
-public class Elevator implements IElevator ,Runnable {
+public class Elevator implements IElevator {
 
+
+    private int currentCapacity;
 
     public int getId() {
         return id;
@@ -14,7 +16,6 @@ public class Elevator implements IElevator ,Runnable {
 
     private final int id;
     private Set<Person> people;
-    private Map<Floor, ArrayList<Person>> floorToPeopleMap;
     private TreeSet<Floor> selectedFloors;
     private IMovementBehaviour movementBehaviour;
     private Floor currentFloor;
@@ -26,16 +27,23 @@ public class Elevator implements IElevator ,Runnable {
         this.currentFloor = currentFloor;
         this.movementBehaviour = NoMovement.instance;
         this.selectedFloors = new TreeSet<>();
-        this.floorToPeopleMap = new HashMap<>();
         this.people = new HashSet<>();
+        this.currentCapacity = 0;
     }
 
 
 
 
-    public void addPersonToElevator(Person person)
+    public void boardElevator(Person person)
     {
+        this.currentCapacity += 1;
         this.people.add(person);
+    }
+
+    public void leaveElevator(Person person)
+    {
+     this.currentCapacity -= 1;
+     this.people.remove(person);
     }
 
     public void setMovementBehaviour(IMovementBehaviour movementBehaviour)
@@ -51,7 +59,9 @@ public class Elevator implements IElevator ,Runnable {
     @Override
     public void selectFloor(int level) {
 
+        System.out.println("Select floor called for level: "+level+" and for elevator: "+this.id+" current floor is : "+this.getCurrentFloor().getLevel());
         synchronized (this) {
+
             if (level != this.currentFloor.getLevel()) {
 
                 if (this.selectedFloors.size() == 0) {
@@ -62,28 +72,26 @@ public class Elevator implements IElevator ,Runnable {
                     }
 
                     this.selectedFloors.add(Building.floors.get(level));
+                    Thread t = new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            runElevator();
+                        }
+                    });
+                    t.start();
 
                 } else {
 
                     this.selectedFloors.add(Building.floors.get(level));
                 }
             }
-        }
-
-
-    }
-
-    public void selectFloor(Person person, int level)
-    {
-        Floor floor = Building.floors.get(level);
-        synchronized (this) {
-            if (!this.floorToPeopleMap.containsKey(floor)) {
-                this.floorToPeopleMap.put(floor, new ArrayList<>());
+            else
+            {
+                Controller.instance.notifyListeners(this, level);
             }
-
-            this.floorToPeopleMap.get(floor).add(person);
         }
-        selectFloor(level);
+
+
     }
 
     @Override
@@ -97,23 +105,16 @@ public class Elevator implements IElevator ,Runnable {
 
     @Override
     public int getCurrentCapacity() {
-        return this.people.size();
+        return this.currentCapacity;
     }
 
     @Override
     public void move() {
-        System.out.println("Thread:"+Thread.currentThread()+" | "+" MSG:"+" Current Floor:"+this.currentFloor.getLevel()+" Selected Floors:"+this.selectedFloors.toString()+" Movement Behaviour:"+this.movementBehaviour.toString());
 
         this.currentFloor = this.movementBehaviour.getNextFloorFromSelected(this.selectedFloors, this.currentFloor);
-        this.selectedFloors.remove(this.currentFloor);
-
         System.out.println("Thread:"+Thread.currentThread()+" | "+" MSG:"+" Current Floor:"+this.currentFloor.getLevel()+" Selected Floors:"+this.selectedFloors.toString()+" Movement Behaviour:"+this.movementBehaviour.toString());
-
-        for(Person person: this.floorToPeopleMap.get(this.currentFloor))
-        {
-            this.people.remove(person);
-        }
-        this.floorToPeopleMap.remove(this.currentFloor);
+        Controller.instance.notifyListeners(this, this.currentFloor.getLevel());
+        this.selectedFloors.remove(this.currentFloor);
 
         if(this.selectedFloors.size() == 0)
         {
@@ -127,8 +128,7 @@ public class Elevator implements IElevator ,Runnable {
 
     }
 
-    @Override
-    public void run() {
+    public void runElevator() {
         System.out.println("Run was Called");
         while(this.selectedFloors.size() != 0)
         {

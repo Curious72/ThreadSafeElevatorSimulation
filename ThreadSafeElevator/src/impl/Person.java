@@ -1,5 +1,6 @@
 package impl;
 
+import interfaces.ElevatorListener;
 import interfaces.IElevator;
 import interfaces.IMovementBehaviour;
 
@@ -18,35 +19,33 @@ public class Person {
     }
 
     public void requestElevator() throws InterruptedException {
-        this.elevator =  Controller.instance.requestElevator(this.movementBehaviour, this.floor.getLevel());
-        System.out.println("Thread:"+Thread.currentThread()+" | MSG:"+" Allocated elevator:"+this.elevator.getId());
-        int count = 0;
-        while(this.elevator.getCurrentFloor() != this.floor)
-        {
-            Thread.sleep(100);
-            count = count + 1;
-            if(count == 100)
-            {
-                break;
+        Floor requestedFloor;
+        if (this.movementBehaviour == UpwardMovement.instance)
+            requestedFloor = Building.floors.get((new Random()).nextInt(Building.numOfFloors - this.floor.getLevel()-1) + this.floor.getLevel());
+        else
+            requestedFloor = Building.floors.get((new Random()).nextInt(this.floor.getLevel()-1));
+
+        System.out.println("Thread Name: "+Thread.currentThread()+" Current floor of person: "+ this.floor.getLevel());
+
+        Person self = this;
+        Controller.instance.requestElevator(this.movementBehaviour, this.floor.getLevel()).addListener(new ElevatorListener() {
+            @Override
+            public void invoke(IElevator elevator) {
+                elevator.boardElevator(self);
+                System.out.println("Thread Name :"+Thread.currentThread()+" | MSG:"+" Allocated elevator:"+elevator.getId()+" Floor requested by Person:"+ requestedFloor);
+                Controller.instance.requestFloor(elevator, requestedFloor.getLevel()).addListener(new ElevatorListener() {
+                    @Override
+                    public void invoke(IElevator elevator) {
+                        self.floor = elevator.getCurrentFloor();
+                        elevator.leaveElevator(self);
+                        System.out.println("Thread Name: "+Thread.currentThread()+" Reached floor: "+ self.floor);
+
+                    }
+                });
+
             }
-        }
-        if(this.elevator.getCurrentFloor() == this.floor)
-        {
-            this.elevator.addPersonToElevator(this);
-            Floor requestedFloor;
-            if (this.movementBehaviour == UpwardMovement.instance)
-                requestedFloor = Building.floors.get((new Random()).nextInt(Building.numOfFloors - this.floor.getLevel()-1) + this.floor.getLevel());
-            else
-                requestedFloor = Building.floors.get((new Random()).nextInt(this.floor.getLevel()-1));
-
-            this.selectFloor(requestedFloor);
-        }
-    }
-    public void selectFloor(Floor floor){
-            this.elevator.selectFloor(this, floor.getLevel());
+        });
 
     }
-
-
 
 }

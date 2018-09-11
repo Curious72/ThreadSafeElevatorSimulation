@@ -35,10 +35,11 @@ public class ElevatorSimulation {
 
         for(Person person: listOfPersons)
         {
-          Thread t = new Thread(new Runnable() {
+          final Thread t = new Thread(new Runnable() {
               @Override
               public void run() {
                   try {
+                      System.out.println("Thread Name :"+ Thread.currentThread()+" Person: "+person);
                       person.requestElevator();
                   } catch (InterruptedException e) {
                       e.printStackTrace();
